@@ -18,3 +18,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *~
+
+# Secure Fragment Vault test files
+secret.txt
+bigfile.txt
+copy.txt
+
+# Generated vault data
+vaults/
+logs/
