@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -19,6 +20,16 @@ int create_directory(char path[]) {
   }
   printf("Directory created: %s\n", path);
   return 0;
+}
+
+unsigned long simple_hash(char password[]) {
+  unsigned long hash = 5381;
+  int i = 0;
+  while (password[i] != '\0') {
+    hash = hash * 33 + password[i];
+    i++;
+  }
+  return hash;
 }
 
 int fragment_file(char source[], char vaultPath[]) {
@@ -71,6 +82,37 @@ int fragment_file(char source[], char vaultPath[]) {
   return 0;
 }
 
+int unlock_vault(char vaultName[]) {
+  char vaultPath[300];
+  snprintf(vaultPath, sizeof(vaultPath), "vaults/%s", vaultName);
+  char accessPath[400];
+  snprintf(accessPath, sizeof(accessPath), "%s/access.dat", vaultPath);
+  int accessFd = open(accessPath, O_RDONLY);
+  if (accessFd == -1) {
+    printf("Error: Could not open vault access file.\n");
+    return -1;
+  }
+  unsigned long storedHash;
+  ssize_t bytesRead = read(accessFd, &storedHash, sizeof(storedHash));
+  if (bytesRead != sizeof(storedHash)) {
+    printf("Error: Could not read password information.\n");
+    close(accessFd);
+    return -1;
+  }
+  close(accessFd);
+  char password[100];
+  printf("Enter password: ");
+  scanf("%99s", password);
+  unsigned long enteredHash = simple_hash(password);
+  if (enteredHash == storedHash) {
+    printf("\nVault unlocked successfully!\n");
+    return 1;
+  } else {
+    printf("\nIncorrect password. Access denied.\n");
+    return 0;
+  }
+}
+
 int my_copy(char source[], char destination[]) {
   int inputFd;
   int outputFd;
@@ -115,6 +157,7 @@ int my_copy(char source[], char destination[]) {
 
 int main() {
   int choice;
+  int vaultUnlocked = 0;
   while (1) {
     printf("\n");
     printf("====================================\n");
@@ -133,11 +176,14 @@ int main() {
       case 1: {
         char filename[100];
         char vaultName[100];
-        char vaultPath[200];
+        char vaultPath[300];
+        char password[100];
         printf("\nEnter file name: ");
         scanf("%99s", filename);
         printf("Enter vault name: ");
         scanf("%99s", vaultName);
+        printf("Create password: ");
+        scanf("%99s", password);
         snprintf(vaultPath, sizeof(vaultPath), "vaults/%s", vaultName);
         int result;
         result = create_directory("vaults");
@@ -150,9 +196,28 @@ int main() {
           printf("Could not create vault.\n");
           break;
         }
+        unsigned long passwordHash;
+        passwordHash = simple_hash(password);
+        char accessPath[400];
+        snprintf(accessPath, sizeof(accessPath), "%s/access.dat", vaultPath);
+        int accessFd;
+        accessFd = open(accessPath, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (accessFd == -1) {
+          printf("Error: Could not create access file.\n");
+          break;
+        }
+        ssize_t hashWritten;
+        hashWritten = write(accessFd, &passwordHash, sizeof(passwordHash));
+        if (hashWritten != sizeof(passwordHash)) {
+          printf("Error: Could not save password information.\n");
+          close(accessFd);
+          break;
+        }
+        close(accessFd);
         result = fragment_file(filename, vaultPath);
         if (result == 0) {
           printf("\nVault created successfully!\n");
+          printf("Vault location: %s\n", vaultPath);
         } else {
           printf("\nVault creation failed.\n");
         }
@@ -161,9 +226,13 @@ int main() {
       case 2:
         printf("\nList Vaults selected.\n");
         break;
-      case 3:
-        printf("\nUnlock Vault selected.\n");
+      case 3: {
+        char vaultName[100];
+        printf("\nEnter vault name: ");
+        scanf("%99s", vaultName);
+        vaultUnlocked = unlock_vault(vaultName);
         break;
+      }
       case 4:
         printf("\nExtract File selected.\n");
         break;
