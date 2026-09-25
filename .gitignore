@@ -27,3 +27,8 @@ copy.txt
 # Generated vault data
 vaults/
 logs/
+
+# Secure Fragment Vault data
+vaults/
+secret.txt
+reconstructed.txt
