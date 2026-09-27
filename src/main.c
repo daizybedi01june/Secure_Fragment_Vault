@@ -113,6 +113,45 @@ int unlock_vault(char vaultName[]) {
   }
 }
 
+int extract_file(char vaultName[], char outputFile[]) {
+  char vaultPath[300];
+  snprintf(vaultPath, sizeof(vaultPath), "vaults/%s", vaultName);
+  int outputFd;
+  outputFd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  if (outputFd == -1) {
+    printf("Error: Could not create output file.\n");
+    return -1;
+  }
+  int fragmentNumber = 1;
+  while (1) {
+    char fragmentName[400];
+    snprintf(fragmentName, sizeof(fragmentName), "%s/fragment_%03d", vaultPath,
+             fragmentNumber);
+    int fragmentFd;
+    fragmentFd = open(fragmentName, O_RDONLY);
+    if (fragmentFd == -1) {
+      break;
+    }
+    char buffer[1024];
+    ssize_t bytesRead;
+    while ((bytesRead = read(fragmentFd, buffer, sizeof(buffer))) > 0) {
+      ssize_t bytesWritten;
+      bytesWritten = write(outputFd, buffer, bytesRead);
+      if (bytesWritten != bytesRead) {
+        printf("Error: Could not write to output file.\n");
+        close(fragmentFd);
+        close(outputFd);
+        return -1;
+      }
+    }
+    close(fragmentFd);
+    fragmentNumber++;
+  }
+  close(outputFd);
+  printf("File extracted successfully!\n");
+  return 0;
+}
+
 int my_copy(char source[], char destination[]) {
   int inputFd;
   int outputFd;
@@ -233,9 +272,20 @@ int main() {
         vaultUnlocked = unlock_vault(vaultName);
         break;
       }
-      case 4:
-        printf("\nExtract File selected.\n");
+      case 4: {
+        if (vaultUnlocked == 0) {
+          printf("\nAccess denied. Unlock the vault first.\n");
+          break;
+        }
+        char vaultName[100];
+        char outputFile[100];
+        printf("\nEnter vault name: ");
+        scanf("%99s", vaultName);
+        printf("Enter output file name: ");
+        scanf("%99s", outputFile);
+        extract_file(vaultName, outputFile);
         break;
+      }
       case 5:
         printf("\nDelete Vault selected.\n");
         break;
