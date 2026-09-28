@@ -1,3 +1,4 @@
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -152,6 +153,32 @@ int extract_file(char vaultName[], char outputFile[]) {
   return 0;
 }
 
+void list_vaults() {
+  DIR* dir;
+  dir = opendir("vaults");
+  if (dir == NULL) {
+    printf("No vaults found.\n");
+    return;
+  }
+  struct dirent* entry;
+  printf("\nAvailable Vaults:\n");
+  while ((entry = readdir(dir)) != NULL) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+    char entryPath[400];
+    snprintf(entryPath, sizeof(entryPath), "vaults/%s", entry->d_name);
+    struct stat entryInfo;
+    if (stat(entryPath, &entryInfo) == -1) {
+      continue;
+    }
+    if (S_ISDIR(entryInfo.st_mode)) {
+      printf("- %s\n", entry->d_name);
+    }
+  }
+  closedir(dir);
+}
+
 int my_copy(char source[], char destination[]) {
   int inputFd;
   int outputFd;
@@ -262,9 +289,10 @@ int main() {
         }
         break;
       }
-      case 2:
-        printf("\nList Vaults selected.\n");
+      case 2: {
+        list_vaults();
         break;
+      }
       case 3: {
         char vaultName[100];
         printf("\nEnter vault name: ");
