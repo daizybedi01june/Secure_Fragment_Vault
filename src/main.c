@@ -1,11 +1,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
 #define FRAGMENT_SIZE 1024
 
 int create_directory(char path[]) {
@@ -309,7 +310,14 @@ int my_copy(char source[], char destination[]) {
   return 0;
 }
 
+void handle_sigint(int signal) {
+  printf("\n\nCtrl+C detected.\n");
+  printf("Secure Fragment Vault is shutting down safely...\n");
+  exit(0);
+}
+
 int main() {
+  signal(SIGINT, handle_sigint);
   int choice;
   int vaultUnlocked = 0;
   while (1) {
