@@ -179,6 +179,70 @@ void list_vaults() {
   closedir(dir);
 }
 
+int verify_password(char vaultName[]) {
+  char vaultPath[300];
+  snprintf(vaultPath, sizeof(vaultPath), "vaults/%s", vaultName);
+  char accessPath[400];
+  snprintf(accessPath, sizeof(accessPath), "%s/access.dat", vaultPath);
+  int accessFd;
+  accessFd = open(accessPath, O_RDONLY);
+  if (accessFd == -1) {
+    printf("Error: Could not open vault access file.\n");
+    return 0;
+  }
+  unsigned long storedHash;
+  ssize_t bytesRead;
+  bytesRead = read(accessFd, &storedHash, sizeof(storedHash));
+  close(accessFd);
+  if (bytesRead != sizeof(storedHash)) {
+    printf("Error: Could not read password information.\n");
+    return 0;
+  }
+  char password[100];
+  printf("Enter password: ");
+  scanf("%99s", password);
+  unsigned long enteredHash = simple_hash(password);
+  if (enteredHash == storedHash) {
+    return 1;
+  }
+  return 0;
+}
+
+int delete_vault(char vaultName[]) {
+  char vaultPath[300];
+  snprintf(vaultPath, sizeof(vaultPath), "vaults/%s", vaultName);
+  if (!verify_password(vaultName)) {
+    printf("Incorrect password. Vault was not deleted.\n");
+    return -1;
+  }
+  DIR* dir;
+  dir = opendir(vaultPath);
+  if (dir == NULL) {
+    printf("Error: Vault does not exist.\n");
+    return -1;
+  }
+  struct dirent* entry;
+  while ((entry = readdir(dir)) != NULL) {
+    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+    char filePath[600];
+    snprintf(filePath, sizeof(filePath), "%s/%s", vaultPath, entry->d_name);
+    if (unlink(filePath) == -1) {
+      printf("Could not delete %s\n", filePath);
+    } else {
+      printf("Deleted %s\n", filePath);
+    }
+  }
+  closedir(dir);
+  if (rmdir(vaultPath) == -1) {
+    printf("Error: Could not remove vault directory.\n");
+    return -1;
+  }
+  printf("Vault deleted successfully!\n");
+  return 0;
+}
+
 int my_copy(char source[], char destination[]) {
   int inputFd;
   int outputFd;
@@ -314,9 +378,13 @@ int main() {
         extract_file(vaultName, outputFile);
         break;
       }
-      case 5:
-        printf("\nDelete Vault selected.\n");
+      case 5: {
+        char vaultName[100];
+        printf("\nEnter vault name: ");
+        scanf("%99s", vaultName);
+        delete_vault(vaultName);
         break;
+      }
       case 6:
         printf("\nExiting Secure Fragment Vault...\n");
         return 0;
