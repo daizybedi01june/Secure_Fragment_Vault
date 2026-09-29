@@ -243,6 +243,30 @@ int delete_vault(char vaultName[]) {
   return 0;
 }
 
+void check_fragment_size(char vaultName[]) {
+  int fragmentNumber;
+  printf("Enter fragment number: ");
+  scanf("%d", &fragmentNumber);
+  char fragmentPath[600];
+  snprintf(fragmentPath, sizeof(fragmentPath), "vaults/%s/fragment_%03d",
+           vaultName, fragmentNumber);
+  int fd = open(fragmentPath, O_RDONLY);
+  if (fd == -1) {
+    printf("Error: Fragment does not exist.\n");
+    return;
+  }
+  off_t size;
+  size = lseek(fd, 0, SEEK_END);
+  if (size == -1) {
+    printf("Error: Could not determine fragment size.\n");
+    close(fd);
+    return;
+  }
+  printf("Fragment_%03d size: %ld bytes\n", fragmentNumber, (long)size);
+
+  close(fd);
+}
+
 int my_copy(char source[], char destination[]) {
   int inputFd;
   int outputFd;
@@ -298,7 +322,8 @@ int main() {
     printf("3. Unlock Vault\n");
     printf("4. Extract File\n");
     printf("5. Delete Vault\n");
-    printf("6. Exit\n");
+    printf("6. Check Fragment Size\n");
+    printf("7. Exit\n");
     printf("====================================\n");
     printf("Enter your choice: ");
     scanf("%d", &choice);
@@ -385,7 +410,14 @@ int main() {
         delete_vault(vaultName);
         break;
       }
-      case 6:
+      case 6: {
+        char vaultName[100];
+        printf("\nEnter vault name: ");
+        scanf("%99s", vaultName);
+        check_fragment_size(vaultName);
+        break;
+      }
+      case 7:
         printf("\nExiting Secure Fragment Vault...\n");
         return 0;
       default:
