@@ -121,7 +121,7 @@ int extract_file(char vaultName[], char outputFile[]) {
   int outputFd;
   outputFd = open(outputFile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (outputFd == -1) {
-    printf("Error: Could not create output file.\n");
+    perror("Error creating output file");
     return -1;
   }
   int fragmentNumber = 1;
@@ -140,16 +140,27 @@ int extract_file(char vaultName[], char outputFile[]) {
       ssize_t bytesWritten;
       bytesWritten = write(outputFd, buffer, bytesRead);
       if (bytesWritten != bytesRead) {
-        printf("Error: Could not write to output file.\n");
+        perror("Error writing to output file");
         close(fragmentFd);
         close(outputFd);
         return -1;
       }
     }
-    close(fragmentFd);
+    if (bytesRead == -1) {
+      perror("Error reading fragment");
+      close(fragmentFd);
+      close(outputFd);
+      return -1;
+    }
+    if (close(fragmentFd) == -1) {
+      perror("Error closing fragment");
+    }
     fragmentNumber++;
   }
-  close(outputFd);
+  if (close(outputFd) == -1) {
+    perror("Error closing output file");
+    return -1;
+  }
   printf("File extracted successfully!\n");
   return 0;
 }
@@ -216,10 +227,9 @@ int delete_vault(char vaultName[]) {
     printf("Incorrect password. Vault was not deleted.\n");
     return -1;
   }
-  DIR* dir;
-  dir = opendir(vaultPath);
+  DIR* dir = opendir(vaultPath);
   if (dir == NULL) {
-    printf("Error: Vault does not exist.\n");
+    perror("Error opening vault");
     return -1;
   }
   struct dirent* entry;
@@ -230,14 +240,17 @@ int delete_vault(char vaultName[]) {
     char filePath[600];
     snprintf(filePath, sizeof(filePath), "%s/%s", vaultPath, entry->d_name);
     if (unlink(filePath) == -1) {
-      printf("Could not delete %s\n", filePath);
-    } else {
-      printf("Deleted %s\n", filePath);
+      perror("Error deleting file");
+      continue;
     }
+    printf("Deleted %s\n", filePath);
   }
-  closedir(dir);
+  if (closedir(dir) == -1) {
+    perror("Error closing vault directory");
+    return -1;
+  }
   if (rmdir(vaultPath) == -1) {
-    printf("Error: Could not remove vault directory.\n");
+    perror("Error removing vault directory");
     return -1;
   }
   printf("Vault deleted successfully!\n");
